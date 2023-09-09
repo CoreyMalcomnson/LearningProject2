@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -7,62 +8,113 @@ using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
 using UnityEngine;
 
-public class MatchmakingManager : MonoBehaviour
+public static class MatchmakingManager
 {
-    public static MatchmakingManager Instance;
 
-    [SerializeField] private UnityTransport transport;
+    public static event Action ServerCodeChanged;
 
-    private string _serverCode;
-    private bool _isAuthenticated;
-
-    private async void Awake()
-    {
-        Instance = this;
-
-        await Authenticate();
+    public static string ServerCode {
+        get => _serverCode;
+        private set
+        {
+            _serverCode = value;
+            ServerCodeChanged?.Invoke();
+        }
     }
 
-    private async Task Authenticate()
+    private static string _serverCode;
+
+    public static bool Initialized { get; private set; }
+
+    private static UnityTransport _transport;
+
+    public static async Task Initialize()
     {
+        _transport = UnityEngine.GameObject.FindObjectOfType<UnityTransport>();
+        
+        if (_transport == null)
+        {
+            Debug.LogError("Could not find UnityTransport while initializing MatchmakingManager");
+            return;
+        }
+
+        //
         await UnityServices.InitializeAsync();
         await AuthenticationService.Instance.SignInAnonymouslyAsync();
 
-        _isAuthenticated = true;
+        Initialized = true;
     }
 
-    public async void StartServer()
+    public static async Task<bool> TryHostServer()
     {
-        if (!_isAuthenticated)
+        if (!Initialized)
         {
-            return;
+            return false;
         }
 
-        Allocation allocation = await RelayService.Instance.CreateAllocationAsync(30);
-       
-        _serverCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
-        
-        transport.SetHostRelayData(allocation.RelayServer.IpV4, (ushort)allocation.RelayServer.Port, allocation.AllocationIdBytes, allocation.Key, allocation.ConnectionData);
-        
-        NetworkManager.Singleton.StartHost();
+        try
+        {
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(30);
+            
+            _transport.SetHostRelayData(
+                allocation.RelayServer.IpV4,
+                (ushort)allocation.RelayServer.Port,
+                allocation.AllocationIdBytes,
+                allocation.Key,
+                allocation.ConnectionData
+            );
+
+            bool success = NetworkManager.Singleton.StartHost();
+
+            if (success)
+            {
+                ServerCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+            }
+
+            return success;
+        } catch(Exception e)
+        {
+            return false;
+        }
     }
 
-    public async void JoinServer(string code)
+    public static async Task<bool> TryJoinServer(string serverCode)
     {
-        if (!_isAuthenticated)
+        if (!Initialized)
         {
-            return;
+            return false;
         }
 
-        JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(code);
-        
-        transport.SetClientRelayData(joinAllocation.RelayServer.IpV4, (ushort)joinAllocation.RelayServer.Port, joinAllocation.AllocationIdBytes, joinAllocation.Key, joinAllocation.ConnectionData, joinAllocation.HostConnectionData);
-        
-        NetworkManager.Singleton.StartClient();
+        try
+        {
+            JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(serverCode);
+
+            _transport.SetClientRelayData(
+                joinAllocation.RelayServer.IpV4,
+                (ushort)joinAllocation.RelayServer.Port,
+                joinAllocation.AllocationIdBytes,
+                joinAllocation.Key,
+                joinAllocation.ConnectionData,
+                joinAllocation.HostConnectionData
+            );
+
+            bool success = NetworkManager.Singleton.StartClient();
+
+            if (success)
+            {
+                ServerCode = serverCode;
+            }
+
+            return success;
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
     }
 
-    public string GetServerCode()
+    public static string GetServerCode()
     {
-        return _serverCode;
+        return ServerCode;
     }
 }
