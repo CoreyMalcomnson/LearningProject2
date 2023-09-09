@@ -8,39 +8,38 @@ using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
 using UnityEngine;
 
-public static class MatchmakingManager
+public static class MatchmakingService
 {
+    #region Events
+    public static event Action MatchmakingCodeChanged;
+    #endregion
 
-    public static event Action ServerCodeChanged;
-
-    public static string ServerCode {
-        get => _serverCode;
-        private set
-        {
-            _serverCode = value;
-            ServerCodeChanged?.Invoke();
-        }
-    }
-
-    private static string _serverCode;
-
+    #region Public Properties
     public static bool Initialized { get; private set; }
 
-    private static UnityTransport _transport;
+    public static string MatchmakingCode {
+        get => _matchmakingCode;
+        private set
+        {
+            _matchmakingCode = value;
+            MatchmakingCodeChanged?.Invoke();
+        }
+    }
+    #endregion
 
-    public static async Task Initialize()
+    #region Private Variables
+    private static string _matchmakingCode;
+
+    private static UnityTransport _transport;
+    #endregion
+
+    public static void Initialize()
     {
-        _transport = UnityEngine.GameObject.FindObjectOfType<UnityTransport>();
-        
+        _transport = GameObject.FindObjectOfType<UnityTransport>();
         if (_transport == null)
         {
-            Debug.LogError("Could not find UnityTransport while initializing MatchmakingManager");
-            return;
+            throw new Exception("Could not find UnityTransport while initializing MatchmakingManager");
         }
-
-        //
-        await UnityServices.InitializeAsync();
-        await AuthenticationService.Instance.SignInAnonymouslyAsync();
 
         Initialized = true;
     }
@@ -68,7 +67,7 @@ public static class MatchmakingManager
 
             if (success)
             {
-                ServerCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+                MatchmakingCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
             }
 
             return success;
@@ -78,7 +77,7 @@ public static class MatchmakingManager
         }
     }
 
-    public static async Task<bool> TryJoinServer(string serverCode)
+    public static async Task<bool> TryJoinServer(string joinCode)
     {
         if (!Initialized)
         {
@@ -87,7 +86,7 @@ public static class MatchmakingManager
 
         try
         {
-            JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(serverCode);
+            JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
 
             _transport.SetClientRelayData(
                 joinAllocation.RelayServer.IpV4,
@@ -102,7 +101,7 @@ public static class MatchmakingManager
 
             if (success)
             {
-                ServerCode = serverCode;
+                MatchmakingCode = joinCode;
             }
 
             return success;
@@ -113,8 +112,20 @@ public static class MatchmakingManager
         }
     }
 
+    public static void LeaveServer()
+    {
+        if (!Initialized)
+        {
+            return;
+        }
+
+        NetworkManager.Singleton.Shutdown();
+
+        MatchmakingCode = "";
+    }
+
     public static string GetServerCode()
     {
-        return ServerCode;
+        return MatchmakingCode;
     }
 }

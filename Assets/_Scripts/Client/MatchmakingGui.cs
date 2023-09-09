@@ -20,15 +20,9 @@ public class MatchmakingGui : MonoBehaviour
     [SerializeField] private Button joinButton;
     [SerializeField] private Button quitButton;
 
-    private async void Awake()
+    private void Awake()
     {
         ConnectButtons();
-
-        inputPanel.SetActive(false);
-
-        await WaitForAuthentication();
-
-        inputPanel.SetActive(true);
     }
 
     private void OnDestroy()
@@ -50,28 +44,13 @@ public class MatchmakingGui : MonoBehaviour
         quitButton.onClick.RemoveListener(OnQuitButtonClicked);
     }
 
-    private async Task WaitForAuthentication()
-    {
-        int dotCount = 0;
-        while (!MatchmakingManager.Initialized)
-        {
-            infoText.text = "Waiting for Authentication" + string.Concat(Enumerable.Repeat(".", dotCount));
-            await Task.Delay(500);
-
-            dotCount++;
-            dotCount %= 4;
-        }
-
-        infoText.text = "Authenticated";
-    }
-
     private async void OnHostButtonClicked()
     {
         if (!ValidateUsernameInput())
             return;
 
         infoText.text = "Hosting Server";
-        bool success = await MatchmakingManager.TryHostServer();
+        bool success = await MatchmakingService.TryHostServer();
         infoText.text = success ? "Successfully hosted server" : "Failed to host server";
     }
 
@@ -84,7 +63,7 @@ public class MatchmakingGui : MonoBehaviour
             return;
 
         infoText.text = "Joining Server";
-        bool success = await MatchmakingManager.TryJoinServer(serverCodeInput.text);
+        bool success = await MatchmakingService.TryJoinServer(serverCodeInput.text);
         infoText.text = success ? "Successfully joined server" : "Failed to join server";
     }
 
