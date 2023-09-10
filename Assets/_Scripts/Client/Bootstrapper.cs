@@ -112,7 +112,11 @@ public class Bootstrapper : MonoBehaviour
     {
         try
         {
-            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            if(!AuthenticationService.Instance.IsSignedIn)
+            {
+                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            }
+            
             SwitchState(State.SUCCESSFULLY_SIGNED_IN);
         }
         catch (Exception e)
