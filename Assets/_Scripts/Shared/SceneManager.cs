@@ -5,18 +5,9 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class GameManager : NetworkBehaviour
+public class SceneManager : NetworkBehaviour
 {
-    public static GameManager Instance;
-
-    enum State
-    {
-        IDLE,
-
-        MAIN_MENU,
-
-        GAME,
-    }
+    public static SceneManager Instance;
 
     private void Awake()
     {
@@ -35,13 +26,13 @@ public class GameManager : NetworkBehaviour
     {
         base.OnNetworkSpawn();
         Debug.Log("Spawn");
-        SceneManager.LoadScene(2);
+        UnityEngine.SceneManagement.SceneManager.LoadScene(Scenes.Game);
     }
 
     public override void OnNetworkDespawn()
     {
         base.OnNetworkDespawn();
         Debug.Log("Despawn");
-        SceneManager.LoadScene(1);
+        UnityEngine.SceneManagement.SceneManager.LoadScene(Scenes.MainMenu);
     }
 }

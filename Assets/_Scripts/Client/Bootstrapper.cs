@@ -116,7 +116,7 @@ public class Bootstrapper : MonoBehaviour
             {
                 await AuthenticationService.Instance.SignInAnonymouslyAsync();
             }
-            
+
             SwitchState(State.SUCCESSFULLY_SIGNED_IN);
         }
         catch (Exception e)
@@ -128,6 +128,6 @@ public class Bootstrapper : MonoBehaviour
 
     private void StartGame()
     {
-        SceneManager.LoadScene(1);
+        UnityEngine.SceneManagement.SceneManager.LoadScene(1);
     }
 }
